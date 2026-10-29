@@ -1,0 +1,237 @@
+\documentclass[11pt,a4paper]{article}
+
+% Layout copied from macros_FP.tex (the preamble of the team report), reduced
+% to what this document uses.
+
+% start of paragraph with no indent
+\parindent0pt
+
+\usepackage[english]{babel}
+\usepackage{amssymb, mathtools}
+\usepackage[numbers]{natbib}
+
+\usepackage{geometry}
+\geometry{
+	a4paper,
+	total={170mm,257mm},
+	left=20mm,
+	top=20mm,
+}
+\usepackage{booktabs}
+\usepackage{tgtermes,tgheros}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+
+\titleformat{\section}[block]
+{\fontsize{12}{15}\bfseries\sffamily\filcenter}
+{\thesection}
+{1em}
+{\MakeUppercase}
+\titleformat{\subsection}[hang]
+{\fontsize{12}{15}\bfseries\sffamily}
+{\thesubsection}
+{1em}
+{}
+
+\allowdisplaybreaks
+
+\begin{document}
+	
+	% ============================================================
+	% TITLE BLOCK (same layout as the team report's title block)
+	% ============================================================
+	\begin{center}
+		{\large\bfseries Modelling Choice and Reaction Time in Delay Discounting with an Absolute-Conflict RT Model}
+		
+		\vspace{0.4em}
+		Qin Yan
+		
+		\vspace{0.8em}
+		This report presents my part of a three-person group project for the course Computational Cognitive Science (Summer Term 2026).
+	\end{center}
+	
+	\vspace{1.2em}
+	
+	% ============================================================
+	% 1 OVERVIEW
+	% ============================================================
+	\section{Overview}
+	
+	This report analyses choice and reaction time (RT) data from the Delay Discounting Data Set, collected from 99 participants. Subjective values follow a hyperbolic discounting model, choices follow a softmax rule on the value difference $\Delta V$, and RT follows a shifted log-normal distribution whose location depends on $|\Delta V|$ (the absolute-conflict model). We assess parameter recovery, test-retest reliability across two runs, and out-of-sample prediction, and we test whether adding RT improves on a choice-only baseline. The original group project compared three RT models. This report covers only the absolute-conflict model and the choice-only baseline.
+	
+	% ============================================================
+	% 2 METHODS
+	% ============================================================
+	\section{Methods}
+	
+	\subsection{Data}
+	
+	We used the Delay Discounting Data Set obtained from 99 participants performing a delay discounting task, abbreviated as the DD data set. It was sampled from two experiments with slightly different setups: 49 participants (Sample-1) and 50 participants (Sample-2). Each trial records the immediate and delayed reward magnitudes ($r_{imm}$, $r_{del}$), the delay (days), the choice (1 = immediate, 2 = delayed, 0 = missing), an experimental condition parameter ($p_{imm} \in [0,1]$), the condition (1 = reward discounting, 2 = loss discounting), and reaction time (RT; ms). Based on the first three variables listed above ($r_{imm}$, $r_{del}$, and delay), we compute each option's subjective value via the valuation model (Section~2.2); the resulting value difference $\Delta V$ is the shared predictor driving both choice and RT. The condition column takes only the value 1 (reward discounting) throughout the DD data set, meaning the loss condition contributes no data. Before preprocessing, run A consists of 80 trials from Sample-1 and 100 trials from Sample-2 per participant, whereas run B consists of 180 trials from Sample-1 and 225 trials from Sample-2 per participant.
+	
+	\textbf{Preprocessing} (per subject, per run, in order): (1) drop any trial with a missing value (NaN) in any of the seven raw columns; (2) drop missing-choice trials (choice $=0$); (3) drop RT $<200$~ms; (4) drop RT $>Q3+3\times\text{IQR}$ (IQR computed per subject/run on the data remaining after steps 1--3). Across all 99 subjects and both runs: 28{,}990 trials before cleaning; 152 removed for missing values (0.52\%), which subsume all 93 missing-choice trials (0.32\%); 0 for RT $<200$~ms; 363 for RT outliers (1.25\%). In total, 28{,}475 trials remain, a removal rate of 1.78\%, with per-subject removal ranging 0--9.6\%.
+	
+	In run A, 45.2\% of trials ($n=8794$) had a delayed choice, compared to 60.0\% in run B ($n=19681$). For RT, under the (only) reward condition, mean (standard deviation, SD) RT was 1877.4 (811.3)~ms in run A and 1664.1 (816.7)~ms in run B; medians were 1707.7~ms and 1493.9~ms, respectively. Since the mean exceeds the median in both runs, the RT distribution is right-skewed.
+	
+	\subsection{Models}
+	
+	\textbf{Valuation Model and Choice Rule. }We adopt the classical hyperbolic discounting model that assigns a subjective value to each option:
+	$ V = \dfrac{A}{1+kD},$
+	where $A$ takes $r_{imm}$ or $r_{del}$ as the reward magnitude, and $D$ is the delay in days, with $D=0$ for the immediate option. The discounting rate $k>0$ is estimated per participant; a larger $k$ indicates a stronger preference for immediate over delayed reward.
+	
+	We then compute the value difference between the two options,
+	$\Delta V = V_{delayed}-V_{immediate},$
+	and couple it to choice via a softmax/logistic rule, \[ P(\text{delayed}) = \text{sigmoid}(\beta\,\Delta V) = \dfrac{1}{1 + \exp(-\beta\,\Delta V)},\]
+	where $\beta>0$ is estimated; a larger $\beta$ indicates greater sensitivity to $\Delta V$. For trial $i$, the choice likelihood is
+	\begin{equation}
+		p(\text{choice}_i \mid \Delta V_i,\beta) = \text{sigmoid}(\beta\,\Delta V_i)^{c_i}\,\big(1-\text{sigmoid}(\beta\,\Delta V_i)\big)^{1-c_i},
+		\label{eq:choice_likelihood}
+	\end{equation}
+	where $c_i=1$ if the choice was delayed and $c_i=0$ if immediate.
+	
+	\textbf{RT model.} We assume RT $\sim$ shifted log-normal, i.e.\ $\log(\text{RT}-\text{shift}) \sim \mathcal{N}(\mu_i,\sigma)$.
+	The shift for each participant is fixed as
+	$\text{shift} = 0.8 \times \min(\text{RT}),$
+	computed once from the cleaned RT pooled across both runs and reused for both runs' likelihood computations. This guarantees $\text{RT}-\text{shift}>0$ in all trials.
+	
+	For trial $i$, the RT likelihood follows the shifted log-normal density,
+	\begin{equation}
+		p(\text{RT}_i \mid \mu_i,\sigma,\text{shift}) = \frac{1}{(\text{RT}_i-\text{shift})\,\sigma\sqrt{2\pi}} \exp\!\left(-\frac{\big(\log(\text{RT}_i-\text{shift})-\mu_i\big)^2}{2\sigma^2}\right).
+		\label{eq:rt_likelihood}
+	\end{equation}
+	Combining Eq.~\eqref{eq:choice_likelihood} and Eq.~\eqref{eq:rt_likelihood}, the full model's joint trial likelihood is
+	\begin{equation*}
+		p(\text{choice}_i,\text{RT}_i \mid \theta) = p(\text{choice}_i\mid\Delta V_i,\beta)\; p(\text{RT}_i\mid\mu_i,\sigma,\text{shift}), \qquad \theta=\{k,\beta,\theta_{\mu},\sigma\},
+	\end{equation*}
+	where $\theta_\mu=\{a,b\}$ denotes the parameters of the $\mu$ mapping defined below.
+	
+	\textbf{Absolute-conflict model.} Response time is governed by decision difficulty, quantified as the absolute value difference $|\Delta V_i|$: response time is longer as $|\Delta V_i|$ approaches 0. Accordingly, $\mu_i = a-b|\Delta V_i|$: the slowdown scales linearly with $|\Delta V_i|$, where $a$ is the RT baseline and $b$ denotes the sensitivity to conflict \cite{mormann2010drift}.
+	
+	\textbf{Choice-only baseline.}
+	The choice-only baseline uses the identical valuation model and choice rule, with parameters $\theta=\{k,\beta\}$ estimated from the choice likelihood Eq.~\eqref{eq:choice_likelihood} alone, i.e.\ the RT term is dropped. Both $k$ and $\beta$ are fit independently in the baseline and in the full model, making the two directly comparable, so that the effect of adding RT can be observed.
+	
+	\subsection{Inference}
+	
+	To keep the optimiser from diverging while leaving parameters largely unconstrained by the data, we use weak priors and bounds: $k\sim\text{HalfNormal}(\text{scale}=1)$ with $k\in(10^{-6},10)$, $\beta\sim\text{HalfNormal}(5)$ with $\beta\in(10^{-6},50)$, $\sigma\sim\text{HalfNormal}(1)$ with $\sigma\in(10^{-6},5)$, $a\sim\mathcal N(\log(\text{median RT of the data being fitted}),2)$, unbounded, and $b\sim\text{HalfNormal}(2)$ with $b\in[0,20]$. The baseline uses the $k,\beta$ priors only.
+	
+	We implement per-participant maximum a posteriori (MAP) estimation as the objective function:
+	\begin{equation*}
+		\hat\theta = \arg\min_\theta -\big[\log p(\text{choice},\text{RT}\mid\theta) + \log p(\theta)\big],
+	\end{equation*}
+	using \texttt{scipy.optimize.minimize} with method L-BFGS-B.
+	
+	Every per-participant fit (run A, run B, and the parameter-recovery refits) uses a 6-candidate pool: one heuristic single start plus 5 random starts drawn uniformly within each bounded parameter's range (except $a$, drawn from its prior). We keep whichever of the six candidates attains the lowest negative log posterior. The heuristic start is $k=0.05,\beta=1,\sigma=0.5$ for the shared parameters and $a=\log(\text{median RT}), b=0.1$ for $\theta_\mu$.
+	
+	\subsection{Evaluation Plan}
+	
+	\textbf{(i) Parameter recovery.} For each participant, we simulate choice and RT data using the same trial design ($r_{imm}$, $r_{del}$, and delay) with that participant's run-A MAP estimate as ground truth, refit with the identical pipeline, and correlate true vs.\ recovered parameters via Pearson $r$. The same simulated choices are also refit with the choice-only baseline, to test whether RT sharpens identifiability of $k,\beta$.
+	
+	\textbf{(ii) Reliability.} We fit run A and run B independently using the same pipeline but distinct random-start seeds, and compute Pearson $r$ and ICC(2,1) (two-way random effects, absolute agreement)\cite{shrout1979intraclass} between the two runs' parameter estimates across participants, in both the full model and the baseline.
+	
+	\textbf{(iii) Out-of-sample prediction.} We apply each subject's run-A-fitted parameters to run-B data and report, for both models, choice predictive log-likelihood,
+	\begin{equation*}
+		\ell_{\text{choice}} = \frac{1}{N_B}\sum_{i=1}^{N_B} \log p(\text{choice}_i \mid \Delta V_i, \hat\beta),
+	\end{equation*}
+	and accuracy; for the full model only, we additionally report RT predictive log-likelihood,
+	\begin{equation*}
+		\ell_{\text{RT}} = \frac{1}{N_B}\sum_{i=1}^{N_B} \log p(\text{RT}_i \mid \mu_i, \hat\sigma, \text{shift}),
+	\end{equation*}
+	where $N_B$ is the total number of run-B trials pooled across all subjects.
+	All metrics are computed under the reward condition only (Section~2.1).
+	
+	\textbf{(iv) Value of RT.} The full model is compared against the choice-only baseline on the choice predictive quantity from (iii), isolating whether adding RT sharpens the choice account. Whether RT sharpens identifiability and reliability of $k,\beta$ is assessed via the full-vs-baseline comparisons already described in (i) and (ii).
+	
+	% ============================================================
+	% 3 RESULTS
+	% ============================================================
+	\section{Results}
+	
+	\subsection{Parameter Recovery and Identifiability}
+	
+	Table~\ref{tab:recovery} shows that $k$, $a$, and $\sigma$ recover well ($r\geq0.90$), $\beta$ recovers similarly well in both the full model and the baseline ($r=0.898$ and $r=0.899$), while $b$ recovers more weakly ($r=0.758$). This is not a boundary artifact: excluding the 15/99 synthetic subjects whose optimiser attained the $b\geq0$ lower bound, the remaining 84 subjects recover even more weakly at $r=0.711$. The weaker identifiability of $b$ instead reflects a genuinely small conflict effect across all 99 participants: the conflict term $b\times\text{median}(|\Delta V|)/a$ has a median of just 0.26\% (max 1.1\%), indicating $b$ has little influence on the RT likelihood even under correct model specification. Adding RT changes the identifiability of $k$ and $\beta$ only marginally relative to the baseline ($\Delta r_k=+0.013$, $\Delta r_\beta=-0.001$), i.e.\ modelling RT neither substantially sharpens nor degrades their recovery.
+	
+	\begin{table}[htbp]
+		\centering
+		\begin{tabular}{lcc}
+			\toprule
+			Parameter & $r$ (full model) & $r$ (baseline) \\
+			\midrule
+			$k$ & 0.904 & 0.891 \\
+			$\beta$ & 0.898 & 0.899 \\
+			$a$ & 0.966 & — \\
+			$b$ & 0.758 & — \\
+			$\sigma$ & 0.935 & — \\
+			\bottomrule
+		\end{tabular}
+		\caption{Parameter recovery (Pearson $r$), absolute-conflict model vs.\ choice-only baseline.}
+		\label{tab:recovery}
+	\end{table}
+	
+	\subsection{Reliability}
+	
+	Table~\ref{tab:reliability} shows that test-retest reliability is low throughout, and, notably, the full model's $k$ is less reliable than the baseline's $k$, despite both being fit to run A/B data generated by the same subject.
+	This gap is not an artifact of a handful of outliers: excluding the 5 most discrepant subjects raises $r_k$ from 0.091 to 0.396 in the full model and from 0.248 to 0.680 in the baseline, so the gap widens rather than narrows (from $-0.157$ to $-0.284$). We also ruled out cross-parameter entanglement (all $|r|<0.18$ between $k$ and $\{\beta,a,b,\sigma\}$ within a run) and a full-model identifiability defect, since $k$'s parameter recovery is if anything better for the full model.
+	We instead attribute the gap to per-participant (non-hierarchical) MAP estimation under a modest per-subject trial count, compounded by a small conflict effect: the full model estimates three additional parameters ($a,b,\sigma$) without gaining much additional constraining information from RT, making its 5-dimensional posterior harder to pin down consistently across two independently fitted runs than the baseline's.
+	
+	\begin{table}[htbp]
+		\centering
+		\begin{tabular}{llcc}
+			\toprule
+			Model & Parameter & Pearson $r$ & ICC(2,1) \\
+			\midrule
+			Full     & $k$      & 0.091 & 0.089 \\
+			Full     & $\beta$  & 0.392 & 0.382 \\
+			Full     & $a$      & 0.432 & 0.311 \\
+			Full     & $b$      & 0.229 & 0.035 \\
+			Full     & $\sigma$ & 0.261 & 0.206 \\
+			Baseline & $k$      & 0.248 & 0.249 \\
+			Baseline & $\beta$  & 0.409 & 0.396 \\
+			\bottomrule
+		\end{tabular}
+		\caption{Run A vs.\ run B reliability (Pearson $r$ and ICC(2,1)), absolute-conflict model vs.\ choice-only baseline.}
+		\label{tab:reliability}
+	\end{table}
+	
+	\subsection{Predictive Performance}
+	
+	As noted in Section~2.1, loss-condition trials do not occur in this data set. Table~\ref{tab:prediction} summarises out-of-sample prediction on run B, using run-A-fitted parameters. For the absolute-conflict model, the choice-only baseline outperforms the full model on both choice predictive log-likelihood and accuracy. For both models, the choice log-likelihood per trial ($-1.679$ and $-1.481$) is below the chance level of $\log 0.5\approx-0.693$, although both models reach a choice accuracy above 0.68. The RT log-likelihood has no comparison model in this report and is listed for completeness only.
+	
+	\begin{table}[htbp]
+		\centering
+		\begin{tabular}{lccc}
+			\toprule
+			Model & Choice log-lik/trial & Choice accuracy & RT log-lik/trial \\
+			\midrule
+			Full: Absolute Conflict & $-1.679$ & 0.681 & $-8.397$ \\
+			Baseline & $-1.481$ & 0.686 & -- \\
+			\bottomrule
+		\end{tabular}
+		\caption{Out-of-sample predictive performance on run B (reward condition; $n=99$ subjects, 19{,}681 trials). RT log-likelihood is not defined for the choice-only baseline.}
+		\label{tab:prediction}
+	\end{table}
+	
+	\subsection{Value of the RT Modality}
+	
+	For the absolute-conflict model, adding RT slightly lowers out-of-sample choice prediction: pooled choice log-likelihood is worse ($-1.679$ vs.\ $-1.481$) and pooled accuracy is marginally lower ($0.681$ vs.\ $0.686$; Table~\ref{tab:prediction}). Two subjects, whose run-A $\beta$ estimates (6.403 and 4.566) lie far above the median of 0.719, account for 99.0\% of the summed run-B choice log-likelihood difference (3858.0 of 3896.2). Subject by subject, the baseline is better for 54 and the full model for 45 of the 99 subjects. RT also fails to sharpen identifiability: $k,\beta$ recovery changes only marginally versus the baseline ($\Delta r_k=+0.013$, $\Delta r_\beta=-0.001$; Section~3.1). Modelling RT thus adds parameters and complexity without a compensating gain in choice prediction or parameter stability.
+	
+	% ============================================================
+	% 4 CONCLUSION
+	% ============================================================
+	\section{Conclusion}
+	
+	For the absolute-conflict model, $k$, $\beta$, $a$, and $\sigma$ are well recovered, while $b$ recovers more weakly because the conflict effect is small. Test-retest reliability is low, and the full model's $k$ is less reliable than the baseline's $k$. Adding RT slightly lowers out-of-sample choice prediction and changes the recovery of $k$ and $\beta$ only marginally.
+	
+	% ============================================================
+	% REFERENCES
+	% ============================================================
+	\begin{thebibliography}{9}
+		
+		\bibitem{mormann2010drift}
+		Mormann, M., Malmaud, J., Huth, A., Koch, C., \& Rangel, A. (2010). The Drift Diffusion Model can account for the accuracy and reaction time of value-based choices under high and low time pressure. \textit{Judgment and Decision Making}, \textit{5}(6), 437--449.
+		
+		\bibitem{shrout1979intraclass}
+		Shrout, P. E., \& Fleiss, J. L. (1979). Intraclass correlations: uses in assessing rater reliability. \textit{Psychological Bulletin}, \textit{86}(2), 420--428.
+		
+	\end{thebibliography}
+	
+\end{document}

@@ -1,0 +1,15 @@
+DD_data/
+.venv/
+.env
+.ipynb_checkpoints/
+__pycache__/
+*:Zone.Identifier
+*.log
+*.aux
+*.out
+*.synctex.gz
+*.toc
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg

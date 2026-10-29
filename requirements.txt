@@ -1,0 +1,6 @@
+# Packages imported by absolute_conflict_rt_model.ipynb (Python 3.12).
+# Running the notebook also needs Jupyter, e.g. `pip install jupyter nbconvert`.
+numpy==2.5.4
+scipy==1.18.1
+pandas==3.0.6
+matplotlib==3.11.2
