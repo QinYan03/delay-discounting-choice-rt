@@ -11,29 +11,29 @@ A joint model of choices and reaction times (RT) in a delay discounting task, fi
 - **Estimation:** per-participant maximum a posteriori (MAP) estimation with L-BFGS-B, keeping the best of a 6-candidate multi-start pool (1 heuristic start plus 5 random starts) in every fit.
 - **Evaluation:** parameter recovery on simulated data, test-retest reliability between run A and run B, out-of-sample prediction of run B from run-A parameters, and a comparison with a choice-only baseline.
 - **Main results:**
-  - Recovery is good for k, β, a and σ (Pearson r from 0.898 to 0.966) and weaker for the conflict slope b (r = 0.758), because the conflict effect is small (its median size is 0.26% of the RT baseline a).
-  - Test-retest reliability is low. For the discount rate k, r = 0.091 in the full model and r = 0.248 in the baseline.
-  - Adding RT did not improve choice prediction on run B. Pooled choice log-likelihood per trial was −1.679 for the full model and −1.481 for the baseline, and accuracy was 0.681 and 0.686. Subject by subject, the baseline is better for 54 and the full model for 45 of the 99 participants.
+  - Recovery is good for the discount rate k, the choice sensitivity β, the RT baseline a and the RT noise σ (Pearson r from 0.898 to 0.966) and weaker for the conflict slope b (r = 0.758), because the conflict effect is small (its median size is 0.26% of a).
+  - Test-retest reliability is low. For k, r = 0.091 in the full model and r = 0.248 in the baseline.
+  - Adding RT did not improve choice prediction on run B. Pooled choice log-likelihood per trial (higher is better) was −1.679 for the full model and −1.481 for the baseline, and accuracy was 0.681 and 0.686. Subject by subject, the baseline is better for 54 and the full model for 45 of the 99 participants.
 - **Tools:** Python 3.12, NumPy, SciPy, pandas, Matplotlib, Jupyter, LaTeX.
 
 | Path | Contents |
 |---|---|
-| `absolute_conflict_rt_model.ipynb` | The full analysis, with saved outputs |
-| `report/absolute_conflict_rt_report.pdf` | Standalone 4-page report (LaTeX source alongside) |
-| `results/` | Six result tables written by the notebook |
-| `figures/` | Four parameter-recovery figures written by the notebook |
+| [absolute_conflict_rt_model.ipynb](absolute_conflict_rt_model.ipynb) | The full analysis, with saved outputs |
+| [report/absolute_conflict_rt_report.pdf](report/absolute_conflict_rt_report.pdf) | Standalone 4-page report (LaTeX source alongside) |
+| [results/](results/) | Six result tables written by the notebook |
+| [figures/](figures/) | Four parameter-recovery figures written by the notebook |
 
 ## How it works
 
 ```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 400}}}%%
 flowchart TD
-    A["99 .mat files, run A and run B"] --> B["Preprocessing per participant and run"]
-    B --> C["shift = 0.8 × min RT per participant, both runs pooled"]
-    C --> D["Run A fit: full model and baseline, MAP, 6 candidates"]
-    D --> E["Parameter recovery: simulate from run-A estimates, refit"]
-    D --> F["Reliability: fit run B independently, Pearson r and ICC(2,1)"]
-    D --> G["Prediction: run-A parameters applied to run B"]
-    E --> H["results/*.csv and figures/*.png"]
+    A["99 .mat files"] --> B["Preprocessing and shift"]
+    B --> D["Run A fit, full and baseline"]
+    D --> E["Parameter recovery"]
+    D --> F["Reliability, run A vs. run B"]
+    D --> G["Prediction of run B"]
+    E --> H["results/ and figures/"]
     F --> H
     G --> H
 ```
