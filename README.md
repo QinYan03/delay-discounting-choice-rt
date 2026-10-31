@@ -1,7 +1,5 @@
 # Choice and Reaction Time in Delay Discounting
 
-Author: Qin Yan
-
 A joint model of choices and reaction times (RT) in a delay discounting task, fitted per participant and evaluated on parameter recovery, test-retest reliability and out-of-sample prediction.
 
 ## At a glance
@@ -10,11 +8,11 @@ A joint model of choices and reaction times (RT) in a delay discounting task, fi
 - **My role:** this was a three-person group project for the course Computational Cognitive Science (Summer Term 2026). I built the shared pipeline (data loading, preprocessing, valuation and choice model, fitting, and the recovery, reliability and prediction framework), the choice-only baseline and the absolute-conflict model. The original project compared three RT models. This repository contains only my part.
 - **Scale:** 99 participants with two runs each (run A and run B), 28,475 trials after cleaning (28,990 before).
 - **Model:** hyperbolic valuation of each option, a softmax choice rule on the value difference ΔV, and a shifted log-normal RT distribution whose location falls linearly with |ΔV| (the absolute-conflict model, μ = a − b·|ΔV|).
-- **Estimation:** per-participant maximum a posteriori (MAP) estimation with L-BFGS-B, keeping the best of a 6-candidate multi-start pool (1 heuristic start plus 5 random starts) in every fit.
+- **Estimation:** per-participant maximum a posteriori (MAP) estimation with L-BFGS-B and multi-start optimisation.
 - **Evaluation:** parameter recovery on simulated data, test-retest reliability between run A and run B, out-of-sample prediction of run B from run-A parameters, and a comparison with a choice-only baseline.
 - **Main results:**
   - Recovery is good for the discount rate k, the choice sensitivity β, the RT baseline a and the RT noise σ (Pearson r from 0.898 to 0.966) and weaker for the conflict slope b (r = 0.758), because the conflict effect is small (its median size is 0.26% of a).
-  - Test-retest reliability is low. For k, r = 0.091 in the full model and r = 0.248 in the baseline. The gap is not driven by a few outliers: excluding the five most discrepant participants raises these values to 0.396 and 0.680, so the gap widens. I attribute it to per-participant (non-hierarchical) MAP estimation with a modest number of trials per participant. The full model estimates three more parameters than the baseline but gains little constraining information from RT, because the conflict effect is small.
+  - Test-retest reliability is low, and lower for k in the full model than in the baseline (r = 0.091 vs. 0.248). Excluding the five most discrepant participants widens this gap rather than closing it (0.396 vs. 0.680). I attribute it to per-participant (non-hierarchical) MAP estimation with a modest number of trials per participant: the full model estimates three more parameters but gains little information from RT, because the conflict effect is small.
   - Adding RT did not improve choice prediction on run B. Pooled choice log-likelihood per trial (higher is better) was −1.679 for the full model and −1.481 for the baseline, and accuracy was 0.681 and 0.686. Participant by participant, the baseline is better for 54 and the full model for 45 of the 99 participants.
   - Two participants account for 99.0% of the summed difference in choice log-likelihood. Their run-A β estimates (6.403 and 4.566) lie far above the median of 0.719. For both models the pooled choice log-likelihood is below the chance level of log 0.5 ≈ −0.693, although accuracy is above 0.68.
 
@@ -46,12 +44,12 @@ flowchart TD
 
 ### Design decisions
 
-- **Shift.** Each participant gets one shift, 0.8 × the minimum cleaned RT of both runs pooled. The pooled minimum is no larger than either run's own minimum, so RT − shift stays positive in every trial of both runs, also when run B is fitted on its own.
-- **Multi-start.** With a single heuristic start, one participant's b stayed at a local optimum on its lower bound. Every fit therefore keeps the best of 6 candidates: the heuristic start plus 5 random starts drawn uniformly within the bounds (a has no bound and is drawn from its prior). The heuristic solution is always in the pool, so the final fit is never worse than a single-start fit. Seeds are fixed for reproducibility.
-- **Weak priors.** Half-normal priors on k (scale 1), β (scale 5), b (scale 2) and σ (scale 1), and a normal prior on a centred on the log median RT of the data being fitted (sd 2), together with bounds, keep the optimiser from diverging.
-- **Baseline is fitted separately.** The choice-only baseline uses the same valuation and choice rule but fits k and β from the choice likelihood alone. Both parameters are fitted independently in the baseline and in the full model, which makes the two directly comparable and isolates the effect of adding RT.
+- **Shift.** Each participant gets one shift, 0.8 × the minimum cleaned RT over both runs. Taking the minimum over both runs keeps RT − shift positive in every trial of either run.
+- **Multi-start.** With the heuristic start alone, one participant's b got stuck at its lower bound. Every fit therefore keeps the best of six starts: the heuristic start plus five random starts within the bounds. Seeds are fixed.
+- **Weak priors.** Half-normal priors on k, β, b and σ and a normal prior on a centred on the log median RT, together with bounds, keep the optimiser from diverging. The scales are given in the report.
+- **Separately fitted baseline.** The choice-only baseline uses the same valuation and choice rule and fits its own k and β from the choice likelihood alone, so the comparison isolates the effect of adding RT.
 - **Independent run B.** Run B is fitted with the same pipeline and a different random seed and shares no information with run A.
-- **Pooled prediction metrics.** Predictive log-likelihood and accuracy are computed over all 19,681 run-B trials pooled across participants, so participants with more trials count proportionally more. Because a pooled number can hide how individual participants behave, the participant-by-participant count is reported next to it (see Main results).
+- **Pooled prediction metrics.** Predictive log-likelihood and accuracy are computed over all 19,681 run-B trials pooled across participants, so participants with more trials count proportionally more.
 
 ## Reproducing the results
 
@@ -86,7 +84,7 @@ In one test run with the package versions in `requirements.txt`, the rewritten t
 
 ## Acknowledgments
 
-The model design, design decisions and analysis are my own. I used AI coding assistants during implementation.
+The model design and analysis are my own. I used AI coding assistants for the implementation.
 
 ## License
 
